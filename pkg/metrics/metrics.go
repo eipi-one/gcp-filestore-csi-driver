@@ -147,7 +147,7 @@ func (mm *MetricsManager) recordComponentVersionMetric() error {
 }
 
 func (mm *MetricsManager) RecordOperationMetrics(opErr error, methodName string, filestoreMode string, opDuration time.Duration) {
-	operationSeconds.WithLabelValues(getErrorCode(opErr), methodName, filestoreMode).Observe(opDuration.Seconds())
+	operationSeconds.WithLabelValues(errorCodeLabelValue(opErr), methodName, filestoreMode).Observe(opDuration.Seconds())
 }
 
 func (mm *MetricsManager) RecordKubeAPIMetrics(opErr error, resourceType, opType, opSource string, opDuration time.Duration) {
@@ -192,6 +192,20 @@ func (mm *MetricsManager) EmitGKEComponentVersion() error {
 	}
 
 	return nil
+}
+
+// errorCodeLabelValue returns the label value for the given operation error.
+func errorCodeLabelValue(operationErr error) string {
+	err := codes.OK.String()
+	if operationErr != nil {
+		// If the operationErr is a TemporaryError, unwrap the temporary error before passing it to CodeForError.
+		var tempErr *common.TemporaryError
+		if errors.As(operationErr, &tempErr) {
+			operationErr = tempErr.Unwrap()
+		}
+		err = getErrorCode(operationErr)
+	}
+	return err
 }
 
 // Server represents any type that could serve HTTP requests for the metrics
